@@ -148,6 +148,10 @@ func (c Clamd) scanFile(ctx context.Context, root *os.Root, rel string) (string,
 // [ErrTooLarge] clamd stopped taking it at its limit, so a caller that keeps the bytes needs an [io.Seeker] to rewind.
 // With no reachable daemon the error is [ErrNoScanner].
 func (c Clamd) ScanReader(ctx context.Context, name string, r io.Reader) (Detection, bool, error) {
+	// A nil r would panic on the first Read once a daemon answered, so it is refused before any dial.
+	if r == nil {
+		return Detection{}, false, errors.New("avscan: nil reader")
+	}
 	threat, err := c.scanStream(ctx, r, true)
 	if err != nil {
 		return Detection{}, false, err

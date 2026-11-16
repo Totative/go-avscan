@@ -1,6 +1,7 @@
 package avscan
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"unicode"
@@ -33,16 +34,28 @@ func FuzzParseReply(f *testing.F) {
 	})
 }
 
-// Quotes only group: no part of a split command line keeps a double quote.
+// Quotes only group: a line holding neither quote splits exactly as whitespace alone would, and no part is empty.
 func FuzzSplitCommand(f *testing.F) {
-	for _, seed := range []string{`clamscan --no-summary "{path}"`, `"C:\Program Files\av\scan.exe" --quiet`, `a  "b c`, ``} {
+	for _, seed := range []string{`clamscan --no-summary "{path}"`, `"C:\Program Files\av\scan.exe" --quiet`, `a  "b c`, `'a "b' c`, ``} {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, line string) {
-		for _, part := range splitCommand(line) {
-			if strings.ContainsRune(part, '"') {
-				t.Fatalf("part %q of %q keeps a quote", part, line)
+		parts, err := splitCommand(line)
+		if strings.ContainsAny(line, `"'`) {
+			if err == nil {
+				for _, part := range parts {
+					if part == "" {
+						t.Fatalf("split %q has an empty part", line)
+					}
+				}
 			}
+			return
+		}
+		if err != nil {
+			t.Fatalf("split %q without a quote = %v", line, err)
+		}
+		if want := strings.Fields(line); !slices.Equal(parts, want) {
+			t.Fatalf("split %q = %q, want %q", line, parts, want)
 		}
 	})
 }

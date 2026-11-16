@@ -304,9 +304,34 @@ func TestDetectionJSONKeys(t *testing.T) {
 
 func TestSplitCommandKeepsQuotedParts(t *testing.T) {
 	t.Parallel()
-	got := splitCommand(`"C:\Program Files\av\scan.exe" --quiet "{path}"`)
-	if len(got) != 3 || got[0] != `C:\Program Files\av\scan.exe` || got[2] != "{path}" {
-		t.Fatalf("parts = %q", got)
+	got, err := splitCommand(`"C:\Program Files\av\scan.exe" --quiet "{path}"`)
+	if err != nil || len(got) != 3 || got[0] != `C:\Program Files\av\scan.exe` || got[2] != "{path}" {
+		t.Fatalf("parts = %q, %v", got, err)
+	}
+}
+
+// A single-quoted {path} must reach the scanner as the bare folder: when single quotes are ordinary characters, a
+// scanner that exits 0 on a non-directory argument reads the tree clean.
+func TestCommandSingleQuotedPathReachesTheScannerBare(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sh")
+	}
+	t.Parallel()
+	script := filepath.Join(t.TempDir(), "scan.sh")
+	body := "#!/bin/sh\n[ -d \"$1\" ] || exit 0\necho \"$1\"\nexit 1\n"
+	if err := os.WriteFile(script, []byte(body), 0o700); err != nil { //nolint:gosec // G306: a test script the test runs
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "bad.dll"), []byte(eicar()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, found, err := (Command{Line: script + " '{path}'"}).Scan(t.Context(), dir)
+	if !found || err != nil || got.Name != dir || got.File != "" {
+		t.Fatalf("scan = %+v, %v, %v; want a detection named %q", got, found, err, dir)
+	}
+	if _, _, err := (Command{Line: script + ` "{path}`}).Scan(t.Context(), dir); err == nil {
+		t.Fatal("an unterminated quote was scanned instead of refused")
 	}
 }
 

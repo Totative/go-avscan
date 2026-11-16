@@ -9,6 +9,18 @@ import (
 	"testing"
 )
 
+func TestScanReaderNilReaderIsAnError(t *testing.T) {
+	t.Parallel()
+	dialled := false
+	c := Clamd{Dial: func(context.Context) (net.Conn, error) {
+		dialled = true
+		return nil, errors.New("not dialled")
+	}}
+	if _, found, err := c.ScanReader(t.Context(), "x", nil); err == nil || found || errors.Is(err, ErrNoScanner) || dialled {
+		t.Fatalf("nil reader = %v, %v, dialled %v; want a plain error and no dial", found, err, dialled)
+	}
+}
+
 func TestScanOmitsErrNoScannerAfterVersion(t *testing.T) {
 	n := 0
 	c := Clamd{
