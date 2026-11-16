@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,12 +15,29 @@ import (
 
 // Command runs a scanner program the caller names. Line is split on spaces and tabs with no shell; a single- or
 // double-quoted part stays whole, with the quotes removed and the other quote literal inside it, and "{path}" in any
-// part is replaced by the folder. Exit 0 is clean; any other exit code is a detection whose name is the first
-// non-empty line of stdout ("" when stdout is empty). Stderr is not read. A program that does not start is an error,
-// one killed by a signal is an error, an empty Line is [ErrNoScanner], a Line without "{path}" is refused since the
-// program would never be given the folder, and a Line with an unterminated quote is an error rather than a guess at
-// the argv.
-type Command struct{ Line string }
+// part is replaced by the folder. Exit 0 is clean. DetectionCodes lists the exit codes that mean a detection whose
+// name is the first non-empty line of stdout ("" when stdout is empty); when DetectionCodes is empty, any non-zero
+// exit is a detection, so callers that treated every non-zero as infected keep that behaviour. Any other non-zero
+// exit is a [ScanError] with that code and stderr. A program that does not start is an error, one killed by a signal
+// is an error, an empty Line is [ErrNoScanner], a Line without "{path}" is refused since the program would never be
+// given the folder, and a Line with an unterminated quote is an error rather than a guess at the argv.
+type Command struct {
+	Line           string
+	DetectionCodes []int
+}
+
+// ScanError is a command that exited with a code that is not a detection.
+type ScanError struct {
+	ExitCode int
+	Stderr   string
+}
+
+func (e ScanError) Error() string {
+	if s := strings.TrimSpace(e.Stderr); s != "" {
+		return fmt.Sprintf("avscan: scanner exit %d: %s", e.ExitCode, s)
+	}
+	return fmt.Sprintf("avscan: scanner exit %d", e.ExitCode)
+}
 
 // splitCommand splits a command line on spaces, keeping a quoted part whole. Either quote opens a part; the other
 // quote is literal inside it, so a path in single quotes survives a shell-free split unharmed.
@@ -97,8 +115,9 @@ func (c Command) Scan(ctx context.Context, dir string) (Detection, bool, error) 
 	nowindow.Set(cmd)
 	// A scanner can leave a child holding stdout open after it is killed; WaitDelay ends the wait for it.
 	cmd.WaitDelay = commandWaitDelay
-	var out cappedBuffer
+	var out, stderr cappedBuffer
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
 	err = cmd.Run()
 	if err == nil {
 		return Detection{}, false, nil
@@ -110,9 +129,16 @@ func (c Command) Scan(ctx context.Context, dir string) (Detection, bool, error) 
 		if ee.ExitCode() == -1 {
 			return Detection{}, false, fmt.Errorf("run %s: %w", parts[0], err)
 		}
+		if !c.detected(ee.ExitCode()) {
+			return Detection{}, false, ScanError{ExitCode: ee.ExitCode(), Stderr: stderr.String()}
+		}
 		return Detection{Name: firstLine(out.String()), Scanner: filepath.Base(parts[0])}, true, nil
 	}
 	return Detection{}, false, fmt.Errorf("run %s: %w", parts[0], err)
+}
+
+func (c Command) detected(code int) bool {
+	return len(c.DetectionCodes) == 0 || slices.Contains(c.DetectionCodes, code)
 }
 
 func firstLine(s string) string {
