@@ -6,6 +6,12 @@ Notable changes to `go-avscan`. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A clamd reply reads clean only when it is exactly `stream: OK`; any other line ending in `OK` is an error.
+
+## [0.4.0] - 2026-11-11
+
 ### Added
 
 - `cmd/avscan` scans a directory through clamd, a named command, or Windows AMSI.
@@ -29,7 +35,6 @@ Notable changes to `go-avscan`. The format follows
 - A file swapped for a directory or FIFO after the walk is an error, not a skipped (clean) path.
 - A clamd `FOUND` reply with no threat name is an error, not a clean scan.
 - An unterminated clamd `OK` reply is an error, not a clean scan.
-- A clamd reply reads clean only when it is exactly `stream: OK`; any other line ending in `OK` is an error.
 - A clamd scan whose write failed partway no longer counts an `OK` reply as clean: only a detection or the size-limit
   error overrides the write error, since clamd never saw the rest of the file.
 
@@ -75,7 +80,8 @@ Notable changes to `go-avscan`. The format follows
 - `Command`: scans a folder with a program the caller names, no shell, and `Program` for its name.
 - `AMSI`: scans a folder through the Windows AMSI provider; `SecurityCenterProducts` lists the antivirus products Windows Security Center registers.
 
-[Unreleased]: https://github.com/Totative/go-avscan/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Totative/go-avscan/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Totative/go-avscan/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Totative/go-avscan/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/Totative/go-avscan/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Totative/go-avscan/compare/v0.2.0...v0.2.1
