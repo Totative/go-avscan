@@ -12,30 +12,30 @@ go get github.com/Totative/go-avscan
 package main
 
 import (
-	"context"
-	"errors"
-	"fmt"
+ "context"
+ "errors"
+ "fmt"
 
-	"github.com/Totative/go-avscan"
+ "github.com/Totative/go-avscan"
 )
 
 // check reports whether dir is safe to use; a machine with no scanner counts as safe here, a choice the caller makes.
 func check(ctx context.Context, s avscan.Scanner, dir string) error {
-	d, found, err := s.Scan(ctx, dir)
-	switch {
-	case errors.Is(err, avscan.ErrNoScanner):
-		return nil
-	case err != nil:
-		return err
-	case found:
-		return fmt.Errorf("%s flagged %q: %s", d.Scanner, d.File, d.Name)
-	}
-	return nil
+ d, found, err := s.Scan(ctx, dir)
+ switch {
+ case errors.Is(err, avscan.ErrNoScanner):
+  return nil
+ case err != nil:
+  return err
+ case found:
+  return fmt.Errorf("%s flagged %q: %s", d.Scanner, d.File, d.Name)
+ }
+ return nil
 }
 
 func main() {
-	_ = check // e.g. check(ctx, avscan.Clamd{}, dir) or check(ctx, avscan.AMSI{AppName: "myapp"}, dir)
-	fmt.Println(avscan.Command{Line: `clamdscan --no-summary "{path}"`}.Program())
+ _ = check // e.g. check(ctx, avscan.Clamd{}, dir) or check(ctx, avscan.AMSI{AppName: "myapp"}, dir)
+ fmt.Println(avscan.Command{Line: `clamdscan --no-summary "{path}"`}.Program())
 }
 ```
 
