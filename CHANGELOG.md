@@ -8,6 +8,9 @@ Notable changes to `go-avscan`. The format follows
 
 ### Fixed
 
+- `Command` treats single quotes like double quotes, so `'{path}'` reaches the scanner as the bare folder instead of a
+  literal-quoted argument; a line with an unterminated quote is an error, not a guessed argv.
+- `Clamd.ScanReader` refuses a nil reader with an error before dialling, instead of panicking.
 - A clamd reply reads clean only when it is exactly `stream: OK`; any other line ending in `OK` is an error.
 
 ## [0.4.0] - 2026-11-11

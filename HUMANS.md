@@ -53,7 +53,7 @@ func main() {
 | `Clamd.Dial` | Replaces `Socket` and the default list; the caller owns trusting what it dials. A dial error is `ErrNoScanner`, except a cancelled context, which returns the context's error |
 | `Clamd.ScanReader` | Streams one reader; `name` becomes `Detection.File`. `ErrTooLarge` and `ErrNoScanner` as for `Scan`, and the reader may be left partly read |
 | `Clamd.Version` | The daemon's version line; `ErrNoScanner` when none answers |
-| `Command` | No shell. Double quotes keep a part whole; `{path}` in any part becomes `dir`. Exit 0 is clean, any other exit code is a detection named by the first non-empty stdout line (stderr is not read). A program that does not start, or that is killed by a signal, is an error |
+| `Command` | No shell. Single or double quotes keep a part whole (the other quote is literal inside), and an unterminated quote is an error; `{path}` in any part becomes `dir`. Exit 0 is clean, any other exit code is a detection named by the first non-empty stdout line (stderr is not read). A program that does not start, or that is killed by a signal, is an error |
 | `AMSI` | `AppName` is registered with `AmsiInitialize`; `""` uses the executable's base name. A file Windows refuses as infected is a detection |
 | `SecurityCenterProducts` | Display names, one per product. An unreadable Security Center is an error and an empty one is `ErrNoScanner` |
 | Context | Cancellation or a deadline ends a blocked read, write or child process; a clamd connection also has one deadline for the whole stream, not a fresh limit per read or write |

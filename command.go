@@ -12,23 +12,34 @@ import (
 	"github.com/Rethunk-Tech/go-desktopenv/nowindow"
 )
 
-// Command runs a scanner program the caller names. Line is split on spaces and tabs with no shell; a double-quoted
-// part stays whole, and "{path}" in any part is replaced by the folder. Exit 0 is clean; any other exit code is a
-// detection whose name is the first non-empty line of stdout ("" when stdout is empty). Stderr is not read. A program
-// that does not start is an error, one killed by a signal is an error, an empty Line is [ErrNoScanner], and a Line
-// without "{path}" is refused, since the program would never be given the folder.
+// Command runs a scanner program the caller names. Line is split on spaces and tabs with no shell; a single- or
+// double-quoted part stays whole, with the quotes removed and the other quote literal inside it, and "{path}" in any
+// part is replaced by the folder. Exit 0 is clean; any other exit code is a detection whose name is the first
+// non-empty line of stdout ("" when stdout is empty). Stderr is not read. A program that does not start is an error,
+// one killed by a signal is an error, an empty Line is [ErrNoScanner], a Line without "{path}" is refused since the
+// program would never be given the folder, and a Line with an unterminated quote is an error rather than a guess at
+// the argv.
 type Command struct{ Line string }
 
-// splitCommand splits a command line on spaces, keeping a double-quoted part whole.
-func splitCommand(line string) []string {
+// splitCommand splits a command line on spaces, keeping a quoted part whole. Either quote opens a part; the other
+// quote is literal inside it, so a path in single quotes survives a shell-free split unharmed.
+func splitCommand(line string) ([]string, error) {
 	var out []string
 	var cur strings.Builder
-	quoted, started := false, false
+	var quote rune
+	started := false
 	for _, r := range line {
 		switch {
-		case r == '"':
-			quoted, started = !quoted, true
-		case (r == ' ' || r == '\t') && !quoted:
+		case quote != 0:
+			started = true
+			if r == quote {
+				quote = 0
+				continue
+			}
+			cur.WriteRune(r)
+		case r == '"' || r == '\'':
+			quote, started = r, true
+		case r == ' ' || r == '\t':
 			if started {
 				out = append(out, cur.String())
 				cur.Reset()
@@ -39,16 +50,19 @@ func splitCommand(line string) []string {
 			started = true
 		}
 	}
+	if quote != 0 {
+		return nil, fmt.Errorf("avscan: unterminated %q in command line", quote)
+	}
 	if started {
 		out = append(out, cur.String())
 	}
-	return out
+	return out, nil
 }
 
-// Program is the base name of the command's first part, "" when Line is empty.
+// Program is the base name of the command's first part, "" when Line is empty or cannot be split.
 func (c Command) Program() string {
-	parts := splitCommand(c.Line)
-	if len(parts) == 0 {
+	parts, err := splitCommand(c.Line)
+	if err != nil || len(parts) == 0 {
 		return ""
 	}
 	return filepath.Base(parts[0])
@@ -63,7 +77,10 @@ const commandWaitDelay = 2 * time.Second
 // Scan runs the command once for the whole folder; File of a detection is "" because a command does not say which
 // file it flagged.
 func (c Command) Scan(ctx context.Context, dir string) (Detection, bool, error) {
-	parts := splitCommand(c.Line)
+	parts, err := splitCommand(c.Line)
+	if err != nil {
+		return Detection{}, false, err
+	}
 	if len(parts) == 0 {
 		return Detection{}, false, ErrNoScanner
 	}
@@ -80,7 +97,7 @@ func (c Command) Scan(ctx context.Context, dir string) (Detection, bool, error) 
 	cmd.WaitDelay = commandWaitDelay
 	var out cappedBuffer
 	cmd.Stdout = &out
-	err := cmd.Run()
+	err = cmd.Run()
 	if err == nil {
 		return Detection{}, false, nil
 	}
