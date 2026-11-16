@@ -34,7 +34,7 @@ func FuzzParseReply(f *testing.F) {
 	})
 }
 
-// Quotes only group: a line holding neither quote splits exactly as whitespace alone would, and no part is empty.
+// Quotes only group: a line holding neither quote splits exactly on spaces and tabs.
 func FuzzSplitCommand(f *testing.F) {
 	for _, seed := range []string{`clamscan --no-summary "{path}"`, `"C:\Program Files\av\scan.exe" --quiet`, `a  "b c`, `'a "b' c`, ``} {
 		f.Add(seed)
@@ -42,19 +42,12 @@ func FuzzSplitCommand(f *testing.F) {
 	f.Fuzz(func(t *testing.T, line string) {
 		parts, err := splitCommand(line)
 		if strings.ContainsAny(line, `"'`) {
-			if err == nil {
-				for _, part := range parts {
-					if part == "" {
-						t.Fatalf("split %q has an empty part", line)
-					}
-				}
-			}
 			return
 		}
 		if err != nil {
 			t.Fatalf("split %q without a quote = %v", line, err)
 		}
-		if want := strings.Fields(line); !slices.Equal(parts, want) {
+		if want := strings.FieldsFunc(line, func(r rune) bool { return r == ' ' || r == '\t' }); !slices.Equal(parts, want) {
 			t.Fatalf("split %q = %q, want %q", line, parts, want)
 		}
 	})

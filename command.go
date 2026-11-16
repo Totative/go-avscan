@@ -26,9 +26,11 @@ type Command struct{ Line string }
 func splitCommand(line string) ([]string, error) {
 	var out []string
 	var cur strings.Builder
-	var quote rune
+	var quote byte
 	started := false
-	for _, r := range line {
+	// Bytes, not runes: every delimiter is ASCII, and ranging over runes would rewrite invalid UTF-8 as U+FFFD.
+	for i := range len(line) {
+		r := line[i]
 		switch {
 		case quote != 0:
 			started = true
@@ -36,7 +38,7 @@ func splitCommand(line string) ([]string, error) {
 				quote = 0
 				continue
 			}
-			cur.WriteRune(r)
+			cur.WriteByte(r)
 		case r == '"' || r == '\'':
 			quote, started = r, true
 		case r == ' ' || r == '\t':
@@ -46,7 +48,7 @@ func splitCommand(line string) ([]string, error) {
 				started = false
 			}
 		default:
-			cur.WriteRune(r)
+			cur.WriteByte(r)
 			started = true
 		}
 	}
