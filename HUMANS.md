@@ -12,30 +12,30 @@ go get github.com/Totative/go-avscan
 package main
 
 import (
-	"context"
-	"errors"
-	"fmt"
+ "context"
+ "errors"
+ "fmt"
 
-	"github.com/Totative/go-avscan"
+ "github.com/Totative/go-avscan"
 )
 
 // check reports whether dir is safe to use; a machine with no scanner counts as safe here, a choice the caller makes.
 func check(ctx context.Context, s avscan.Scanner, dir string) error {
-	d, found, err := s.Scan(ctx, dir)
-	switch {
-	case errors.Is(err, avscan.ErrNoScanner):
-		return nil
-	case err != nil:
-		return err
-	case found:
-		return fmt.Errorf("%s flagged %q: %s", d.Scanner, d.File, d.Name)
-	}
-	return nil
+ d, found, err := s.Scan(ctx, dir)
+ switch {
+ case errors.Is(err, avscan.ErrNoScanner):
+  return nil
+ case err != nil:
+  return err
+ case found:
+  return fmt.Errorf("%s flagged %q: %s", d.Scanner, d.File, d.Name)
+ }
+ return nil
 }
 
 func main() {
-	_ = check // e.g. check(ctx, avscan.Clamd{}, dir) or check(ctx, avscan.AMSI{AppName: "myapp"}, dir)
-	fmt.Println(avscan.Command{Line: `clamdscan --no-summary "{path}"`}.Program())
+ _ = check // e.g. check(ctx, avscan.Clamd{}, dir) or check(ctx, avscan.AMSI{AppName: "myapp"}, dir)
+ fmt.Println(avscan.Command{Line: `clamdscan --no-summary "{path}"`, DetectionCodes: []int{1}}.Program())
 }
 ```
 
@@ -49,11 +49,12 @@ func main() {
 | `Detection.Scanner` | `"clamd"`, `"AMSI"`, or the base name of the command's program |
 | `ErrNoScanner` | No AMSI provider, no reachable clamd, an empty command line, or AMSI off Windows. Test with `errors.Is`. A clamd scan still needs a daemon when the folder has no regular files |
 | `ErrTooLarge` | clamd refused a file over its size limit; wrapped with the file's path. A later detection in the same folder still wins; with none, this is the error |
+| `ScanError` | A command exited with a code other than 0 and not in `DetectionCodes`. Holds `ExitCode` and `Stderr`. Test with `errors.As` |
 | `Clamd.Socket` | Trusted as given. `""` tries the distribution's default sockets, skipping any not owned by root or the `clamav` user on Unix |
 | `Clamd.Dial` | Replaces `Socket` and the default list; the caller owns trusting what it dials. A dial error is `ErrNoScanner`, except a cancelled context, which returns the context's error |
 | `Clamd.ScanReader` | Streams one reader; `name` becomes `Detection.File`. `ErrTooLarge` and `ErrNoScanner` as for `Scan`, and the reader may be left partly read |
 | `Clamd.Version` | The daemon's version line; `ErrNoScanner` when none answers |
-| `Command` | No shell. Double quotes keep a part whole; `{path}` in any part becomes `dir`. Exit 0 is clean, any other exit code is a detection named by the first non-empty stdout line (stderr is not read). A program that does not start, or that is killed by a signal, is an error |
+| `Command` | No shell. Double quotes keep a part whole; `{path}` in any part becomes `dir`. Exit 0 is clean. `DetectionCodes` are the exits that mean a detection named by the first non-empty stdout line; empty, any non-zero exit is a detection. Any other non-zero exit is a `ScanError` (stderr is not the name). A program that does not start, or that is killed by a signal, is an error |
 | `AMSI` | `AppName` is registered with `AmsiInitialize`; `""` uses the executable's base name. A file Windows refuses as infected is a detection |
 | `SecurityCenterProducts` | Display names, one per product. An unreadable Security Center is an error and an empty one is `ErrNoScanner` |
 | Context | Cancellation or a deadline ends a blocked read, write or child process; a clamd connection also has one deadline for the whole stream, not a fresh limit per read or write |
