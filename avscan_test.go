@@ -146,6 +146,9 @@ func (d *delayedReader) Read(p []byte) (int, error) {
 }
 
 func TestClamdProtocolFlagsOnlyTheInfectedFile(t *testing.T) {
+	if os.Getenv("WINEPREFIX") != "" {
+		t.Skip("fake clamd unix sockets do not survive Wine")
+	}
 	t.Parallel()
 	dir := writeTree(t, map[string]string{"a/clean.dll": "hello", "b/bad.dll": "prefix" + eicar()})
 	got, found, err := fakeClamd(t, 0).Scan(t.Context(), dir)
@@ -162,6 +165,9 @@ func TestClamdProtocolFlagsOnlyTheInfectedFile(t *testing.T) {
 }
 
 func TestClamdStreamLimitIsAFailedScan(t *testing.T) {
+	if os.Getenv("WINEPREFIX") != "" {
+		t.Skip("fake clamd unix sockets do not survive Wine")
+	}
 	t.Parallel()
 	dir := writeTree(t, map[string]string{"big.bin": strings.Repeat("x", 200_000), "bad.dll": eicar()})
 	if got, found, err := fakeClamd(t, 100_000).Scan(t.Context(), dir); !found || got.File != "bad.dll" || err != nil {
@@ -195,6 +201,9 @@ func TestClamdNotRegularAtOpenIsAnError(t *testing.T) {
 }
 
 func TestClamdEmptyDirNeedsADaemon(t *testing.T) {
+	if os.Getenv("WINEPREFIX") != "" {
+		t.Skip("fake clamd unix sockets do not survive Wine")
+	}
 	t.Parallel()
 	dir := t.TempDir()
 	missing := Clamd{Socket: filepath.Join(t.TempDir(), "none.sock")}

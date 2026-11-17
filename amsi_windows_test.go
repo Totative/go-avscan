@@ -37,8 +37,8 @@ func TestAMSIFlagsTheMicrosoftTestSample(t *testing.T) {
 	if errors.Is(err, os.ErrNotExist) {
 		t.Skip("the antivirus removed the test file before AMSI saw it")
 	}
-	if err == nil && !found && defenderRealtimeOff(t) {
-		t.Skip("Defender real-time protection is off, so no provider flags the sample")
+	if err == nil && !found && (defenderRealtimeOff(t) || os.Getenv("WINEPREFIX") != "") {
+		t.Skip("no Windows antivirus flagged the sample")
 	}
 	if err != nil || !found || hit.File != "sample.txt" || hit.Scanner != "AMSI" || hit.Name != "" {
 		t.Fatalf("the AMSI test sample was not flagged: %+v %v %v", hit, found, err)
