@@ -105,7 +105,8 @@ func FuzzClamdVersion(f *testing.F) {
 			_, _ = server.Read(buf)
 			_, _ = server.Write(reply)
 		}()
-		ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
+		//nolint:usetesting // ClusterFuzzLite builds fuzz targets against a testing.T with no Context method.
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		ver, err := (Clamd{Dial: func(context.Context) (net.Conn, error) { return client, nil }}).Version(ctx)
 		<-done
