@@ -1,1 +1,4 @@
 reconciled = "canon v0.1.0-poc"
+
+[deviations]
+patterns-release-00001 = "This workflow calls the org reusable workflow that publishes the GitHub Release; a checkout and release step here would not see that job's tag object and would race it."
