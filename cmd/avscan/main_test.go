@@ -188,6 +188,30 @@ func TestCommandDetection(t *testing.T) {
 	}
 }
 
+// A scanner that exits 2 (clamscan's error code) is an error with its stderr, not a detection, unless the caller
+// lists 2 in -detection-codes.
+func TestCommandDetectionCodes(t *testing.T) {
+	skipWindowsShell(t)
+	script := writeScript(t, t.TempDir(), "fail.sh", "echo scanner broke >&2\nexit 2")
+	dir := t.TempDir()
+	line := "sh " + script + " {path}"
+
+	code, stdout, stderr := invoke(t.Context(), "-command", line, dir)
+	if code != 2 || stdout != "" || !strings.Contains(stderr, "scanner broke") {
+		t.Fatalf("exit %d, stdout=%q stderr=%q; want 2, empty, scanner stderr", code, stdout, stderr)
+	}
+	code, stdout, _ = invoke(t.Context(), "-detection-codes", "1, 2", "-command", line, dir)
+	if code != 1 || !strings.HasPrefix(stdout, "FOUND") {
+		t.Fatalf("with 2 listed: exit %d, stdout=%q", code, stdout)
+	}
+	for _, bad := range []string{"", "x", "0", "1,,2"} {
+		code, _, stderr = invoke(t.Context(), "-detection-codes", bad, "-command", line, dir)
+		if code != 2 || !strings.Contains(stderr, "-detection-codes") {
+			t.Fatalf("%q: exit %d, stderr=%q", bad, code, stderr)
+		}
+	}
+}
+
 func TestCommandUnexpected(t *testing.T) {
 	// A program that does not start is a Command error, not a detection.
 	missing := filepath.Join(t.TempDir(), "no-such-scanner")
