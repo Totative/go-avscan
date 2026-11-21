@@ -8,6 +8,8 @@ Notable changes to `go-avscan`. The format follows
 
 ### Fixed
 
+- `avscan -command` reported a scanner error (clamscan exits 2) as `FOUND` with exit 1. Only exit 1 is a detection now, and `-detection-codes` lists others.
+
 - `Command` treats single quotes like double quotes, so `'{path}'` reaches the scanner as the bare folder instead of a
   literal-quoted argument; a line with an unterminated quote is an error, not a guessed argv.
 - `Clamd.ScanReader` refuses a nil reader with an error before dialling, instead of panicking.
