@@ -36,7 +36,7 @@ A worked example and the contracts: [HUMANS.md](HUMANS.md).
 go install github.com/Totative/go-avscan/cmd/avscan@latest
 ```
 
-`avscan [flags] DIR` scans one directory. Choose exactly one of `-clamd ADDR` (`unix:/path` or `tcp:host:port`), `-command LINE`, or `-amsi` (Windows AMSI).
+`avscan [flags] DIR` scans one directory. Choose exactly one of `-clamd ADDR` (`unix:/path` or `tcp:host:port`), `-command LINE`, or `-amsi` (Windows AMSI). With `-command`, `-detection-codes 1,3` lists the exit codes that mean a detection (default `1`); any other non-zero exit is an error, so clamscan's exit 2 is not reported as a find.
 
 Exit 0 is clean, 1 a detection, and 2 any error (usage, timeout, or a scan that did not finish).
 

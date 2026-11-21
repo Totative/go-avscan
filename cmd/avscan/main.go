@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -39,6 +40,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	clamdAddr := fs.String("clamd", "", "clamd address (`unix:/path` or `tcp:host:port`)")
 	commandLine := fs.String("command", "", "scanner command line")
 	amsi := fs.Bool("amsi", false, "use Windows AMSI")
+	codes := fs.String("detection-codes", "1", "comma-separated `exit codes` of -command that mean a detection; any other non-zero exit is an error")
 	timeout := fs.Duration("timeout", 10*time.Minute, "deadline for the whole scan")
 	asJSON := fs.Bool("json", false, "print one JSON object")
 	if err := fs.Parse(args); err != nil {
@@ -96,7 +98,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		}
 		scanner, kind = c, "clamd"
 	case *commandLine != "":
-		scanner, kind = avscan.Command{Line: *commandLine}, "command"
+		dc, err := parseCodes(*codes)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: %v\n", err)
+			return 2
+		}
+		scanner, kind = avscan.Command{Line: *commandLine, DetectionCodes: dc}, "command"
 	default:
 		scanner, kind = avscan.AMSI{AppName: "avscan"}, "amsi"
 	}
@@ -163,6 +170,20 @@ func errorOrNil(err error) *string {
 	}
 	s := err.Error()
 	return &s
+}
+
+// parseCodes reads the -detection-codes list. An empty list would make every non-zero exit a detection, which is
+// the library default this flag exists to avoid.
+func parseCodes(list string) ([]int, error) {
+	var out []int
+	for f := range strings.SplitSeq(list, ",") {
+		n, err := strconv.Atoi(strings.TrimSpace(f))
+		if err != nil || n <= 0 {
+			return nil, fmt.Errorf("-detection-codes %q: want positive integers separated by commas", list)
+		}
+		out = append(out, n)
+	}
+	return out, nil
 }
 
 var errClamdAddr = errors.New("-clamd ADDR must be unix:/path or tcp:host:port")
